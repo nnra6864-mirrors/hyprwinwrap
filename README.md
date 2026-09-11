@@ -58,8 +58,8 @@ end
 | `title` | string | Window title **exact match**, not a regex. |
 | `pos_x` | number | Horizontal position as a percentage of the screen width. |
 | `pos_y` | number | Vertical position as a percentage of the screen height. |
-| `size_x` | number | Width as a percentage of the screen width. |
-| `size_y` | number | Height as a percentage of the screen height. Set to `97` to leave room for a bottom bar, for example. |
+| `size_x` | number | Width as a percentage of the screen width. Any Lua expression works, like `200 / (1 + math.sqrt(5))` for a golden ratio window :D (61.8% ish) |
+| `size_y` | number | Height as a percentage of the screen height. `100 * 1000 / 1080` gives exactly 1000px on a 1080p screen. |
 | `layer` | number | Higher values render on top of lower values. |
 
 ### Focus Dispatcher
@@ -131,6 +131,10 @@ previous_client="$(hyprctl clients -j | jq -r '[.[] | select(.workspace.id == '"
 ---
 
 ## Examples
+
+### Fitting Above A Bar
+
+Run `hyprctl layers` to see your bar's y position (its `xywh`), then set `size_y = 100 * y / screen_height`. On a 1080p screen with a waybar at y=1050, that's `100 * 1050 / 1080`
 
 ### Transparent Image
 

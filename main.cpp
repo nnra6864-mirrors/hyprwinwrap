@@ -55,7 +55,7 @@ struct SBgWindowSpec
     std::string className; // exact match
     std::string title;     // exact match
     int layer = 0;         // render order
-    float posX = 0.f, posY = 0.f, sizeX = 100.f, sizeY = 100.f;
+    double posX = 0.0, posY = 0.0, sizeX = 100.0, sizeY = 100.0;
 };
 
 std::vector<PHLWINDOWREF> bgWindows;
@@ -81,11 +81,18 @@ static SP<Desktop::Rule::CWindowRule> makeWindowRule(const std::string &name, co
 {
     auto rule = makeShared<Desktop::Rule::CWindowRule>(name);
     rule->registerMatch(prop, "^(" + match + ")$");
-    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_FLOAT, "1");
-    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_SIZE, "100% 100%");
-    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_NO_DIM, "1");      // prevent interactive switch causing any brightness change from focus
-    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_BORDER_SIZE, "0"); // prevent border flash when focused interactively
-    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_NO_SHADOW, "1");
+
+    const auto addEffect = [&](Desktop::Rule::CWindowRule::storageType effect, const std::string &value)
+    {
+        if (const auto result = rule->addEffect(effect, value); !result)
+            HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Failed to add window rule effect: " + result.error(), CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
+    };
+
+    addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_FLOAT, "1");
+    addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_SIZE, "100% 100%");
+    addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_NO_DIM, "1");      // prevent interactive switch causing any brightness change from focus
+    addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_BORDER_SIZE, "0"); // prevent border flash when focused interactively
+    addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_NO_SHADOW, "1");
     return rule;
 }
 
@@ -99,12 +106,11 @@ static void clearWindowRules()
     bgRules.clear();
 }
 
-// Parse a CStringValue into a float, leaving the fallback untouched on failure.
-static float parseFloatOr(const SP<Config::Values::CStringValue> &val, float fallback)
+static double parseDoubleOr(const SP<Config::Values::CStringValue> &val, double fallback)
 {
     try
     {
-        return std::stof(val->value());
+        return std::stod(val->value());
     }
     catch (...)
     {
@@ -124,10 +130,10 @@ static std::vector<SBgWindowSpec> collectSpecs()
         SBgWindowSpec legacy;
         legacy.className = legacyClass;
         legacy.title = legacyTitle;
-        legacy.sizeX = parseFloatOr(gCfgSizeX, 100.f);
-        legacy.sizeY = parseFloatOr(gCfgSizeY, 100.f);
-        legacy.posX = parseFloatOr(gCfgPosX, 0.f);
-        legacy.posY = parseFloatOr(gCfgPosY, 0.f);
+        legacy.sizeX = parseDoubleOr(gCfgSizeX, 100.0);
+        legacy.sizeY = parseDoubleOr(gCfgSizeY, 100.0);
+        legacy.posX = parseDoubleOr(gCfgPosX, 0.0);
+        legacy.posY = parseDoubleOr(gCfgPosY, 0.0);
         specs.push_back(legacy);
     }
 
@@ -145,21 +151,21 @@ static void applyBgWindowGeometry(PHLWINDOW pWindow)
     const auto it = gWindowSpecs.find(pWindow);
     const SBgWindowSpec &spec = it != gWindowSpecs.end() ? it->second : kDefault;
 
-    float sx = std::clamp(spec.sizeX, 1.f, 100.f);
-    float sy = std::clamp(spec.sizeY, 1.f, 100.f);
-    float px = std::clamp(spec.posX, 0.f, 100.f);
-    float py = std::clamp(spec.posY, 0.f, 100.f);
+    double sx = std::clamp(spec.sizeX, 1.0, 100.0);
+    double sy = std::clamp(spec.sizeY, 1.0, 100.0);
+    double px = std::clamp(spec.posX, 0.0, 100.0);
+    double py = std::clamp(spec.posY, 0.0, 100.0);
 
-    if (px + sx > 100.f)
-        sx = 100.f - px;
-    if (py + sy > 100.f)
-        sy = 100.f - py;
+    if (px + sx > 100.0)
+        sx = 100.0 - px;
+    if (py + sy > 100.0)
+        sy = 100.0 - py;
 
     const Vector2D monitorSize = PMONITOR->m_size;
     const Vector2D monitorPos = PMONITOR->m_position;
 
-    const Vector2D newSize = {static_cast<int>(monitorSize.x * (sx / 100.f)), static_cast<int>(monitorSize.y * (sy / 100.f))};
-    const Vector2D newPos = {static_cast<int>(monitorPos.x + (monitorSize.x * (px / 100.f))), static_cast<int>(monitorPos.y + (monitorSize.y * (py / 100.f)))};
+    const Vector2D newSize = {monitorSize.x * (sx / 100.0), monitorSize.y * (sy / 100.0)};
+    const Vector2D newPos = {monitorPos.x + (monitorSize.x * (px / 100.0)), monitorPos.y + (monitorSize.y * (py / 100.0))};
 
     const CBox b(newPos.x, newPos.y, newSize.x, newSize.y);
     auto target = pWindow->layoutTarget();
@@ -386,11 +392,11 @@ static int luaWindow(lua_State *L)
             out = lua_tostring(L, -1);
         lua_pop(L, 1);
     };
-    const auto getNum = [&](const char *key, float &out)
+    const auto getNum = [&](const char *key, double &out)
     {
         lua_getfield(L, 1, key);
         if (lua_isnumber(L, -1))
-            out = static_cast<float>(lua_tonumber(L, -1));
+            out = lua_tonumber(L, -1);
         lua_pop(L, 1);
     };
 
